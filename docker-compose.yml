@@ -1,0 +1,39 @@
+  version: "3.9"
+
+  x-backend: &common
+    image: pmdev
+    environment:
+        PAPERMERGE__SECURITY__SECRET_KEY: 12345
+        PAPERMERGE__AUTH__USERNAME: shelby
+        PAPERMERGE__AUTH__PASSWORD: cobra
+        PAPERMERGE__DATABASE__URL: postgresql://scott:tiger@db:5432/mydatabase
+        PAPERMERGE__REDIS__URL: redis://redis:6379/0
+    volumes:
+      - index_db:/core_app/index_db
+      - media:/core_app/media
+  services:
+    web:
+      <<: *common
+      ports:
+       - "12000:80"
+      depends_on:
+        - redis
+        - db
+    worker:
+      <<: *common
+      command: worker
+    redis:
+      image: redis:6
+    db:
+      image: bitnami/postgresql:16.1.0
+      volumes:
+        - postgres_data:/var/lib/postgresql/data/
+      environment:
+        POSTGRESQL_USER: scott
+        POSTGRESQL_PASSWORD: tiger
+        POSTGRESQL_POSTGRES_PASSWORD: tiger
+        POSTGRESQL_DATABASE: mydatabase
+  volumes:
+    postgres_data:
+    index_db:
+    media:
