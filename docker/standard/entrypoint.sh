@@ -23,13 +23,20 @@ exec_createsuperuser() {
 }
 
 exec_index_schema_apply() {
-  VIRTUAL_ENV=/core_app/.venv && cd /core_app && poetry run ./manage.py index_schema apply
+  echo "exec_index_schema_apply"
+  if [ -n "${PAPERMERGE__SEARCH__URL}" ]; then
+    # PAPERMERGE__SEARCH__URL has non-empty value
+    echo "PAPERMERGE__SEARCH__URL=${PAPERMERGE__SEARCH__URL}"
+    echo "Applying index schema..."
+    cd /core_app && poetry run paper-cli index-schema apply
+  fi
 }
 
 exec_init() {
   exec_migrate
   exec_perms_sync
   exec_createsuperuser
+  exec_index_schema_apply
 }
 
 rm -f /etc/nginx/nginx.conf
@@ -55,8 +62,19 @@ case $CMD in
     ;;
   server)
     exec_init
+    # TODO: replace roco with env2js
     roco > /usr/share/nginx/html/auth_server/papermerge-runtime-config.js
-    roco > /usr/share/nginx/html/ui/papermerge-runtime-config.js
+    # Once user options endpoint is implemented, following two lines will removed
+    /bin/env2js -f /core_app/core.js.tmpl > /usr/share/nginx/html/ui/papermerge-runtime-config.js
+    sed -i '/Papermerge/a  <script type="module" src="/papermerge-runtime-config.js"></script>' /usr/share/nginx/html/ui/index.html
+    exec /usr/bin/supervisord -c /etc/papermerge/supervisord.conf
+    ;;
+  server_without_init)
+    # TODO: replace roco with env2js
+    roco > /usr/share/nginx/html/auth_server/papermerge-runtime-config.js
+    # Once user options endpoint is implemented, following two lines will removed
+    /bin/env2js -f /core_app/core.js.tmpl > /usr/share/nginx/html/ui/papermerge-runtime-config.js
+    sed -i '/Papermerge/a  <script type="module" src="/papermerge-runtime-config.js"></script>' /usr/share/nginx/html/ui/index.html
     exec /usr/bin/supervisord -c /etc/papermerge/supervisord.conf
     ;;
   create_token.sh)
