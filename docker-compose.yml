@@ -1,39 +1,105 @@
-  version: "3.9"
 
-  x-backend: &common
-    image: pmdev
+services:
+  core:
+    image: dms-api:dev
+    depends_on:
+      - db
+      - search
+      - redis
     environment:
-        PAPERMERGE__SECURITY__SECRET_KEY: 12345
-        PAPERMERGE__AUTH__USERNAME: shelby
-        PAPERMERGE__AUTH__PASSWORD: cobra
-        PAPERMERGE__DATABASE__URL: postgresql://scott:tiger@db:5432/mydatabase
-        PAPERMERGE__REDIS__URL: redis://redis:6379/0
+      CORE_APP: /core_app
+      PAPERMERGE__DATABASE__URL: postgresql://liquid:snake@db:5432/dms
+      PAPERMERGE__REDIS__URL: redis://redis/0
+      PAPERMERGE__OCR__DEFAULT_LANGUAGE: eng
+      PAPERMERGE__MAIN__API_PREFIX: ""
+      PAPERMERGE__SECURITY__SECRET_KEY: 183781
+      PAPERMERGE__MAIN__MEDIA_ROOT: /data/DMS/media/
+      PAPERMERGE__MAIN__TIMEZONE: Asia/Dhaka
+      PAPERMERGE__SECURITY__TOKEN_EXPIRE_MINUTES: 30
+      PAPERMERGE__SEARCH__URL: solr://search:8983/dms
+      PAPERMERGE__DEVELOPER__LOGIN: yes
+      
     volumes:
-      - index_db:/core_app/index_db
-      - media:/core_app/media
-  services:
-    web:
-      <<: *common
-      ports:
-       - "12000:80"
-      depends_on:
-        - redis
-        - db
-    worker:
-      <<: *common
-      command: worker
-    redis:
-      image: redis:6
-    db:
-      image: bitnami/postgresql:16.1.0
-      volumes:
-        - postgres_data:/var/lib/postgresql/data/
-      environment:
-        POSTGRESQL_USER: scott
-        POSTGRESQL_PASSWORD: tiger
-        POSTGRESQL_POSTGRES_PASSWORD: tiger
-        POSTGRESQL_DATABASE: mydatabase
-  volumes:
-    postgres_data:
-    index_db:
-    media:
+      - ./DMS/media:/data/DMS/media
+      - ./DMS:/app/logs
+    expose:
+      - 80
+
+  web:
+    image: dms-web:dev
+    expose:
+      - 80
+
+  ocr:
+    image: dms-ocr:dev
+    depends_on:
+      - redis
+      - db
+    environment:
+      PAPERMERGE__DATABASE__URL: postgresql://liquid:snake@db:5432/dms
+      PAPERMERGE__REDIS__URL: redis://redis/0
+      PAPERMERGE__MAIN__MEDIA_ROOT: /data/DMS/media/
+    volumes:
+      - ./DMS/media:/data/DMS/media
+      - ./DMS:/app/logs
+
+  search:
+    image: solr:latest
+    ports:
+      - 8983:8983
+    volumes:
+      - ./DMS/solr:/var/solr
+    command:
+      - solr-precreate
+      - dms
+
+  index:
+    image: dms-index:latest
+    depends_on:
+      - db
+      - search
+      - redis
+    environment:
+      PAPERMERGE__DATABASE__URL: postgresql://liquid:snake@db:5432/dms
+      PAPERMERGE__REDIS__URL: redis://redis/0
+      PAPERMERGE__SEARCH__URL: solr://search:8983/dms
+    volumes:
+      - ./DMS:/app/logs
+
+  redis:
+    image: redis:6
+    healthcheck:
+      test: redis-cli --raw incr ping
+      interval: 5s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - 80:80 # Only NGINX is exposed externally
+    depends_on:
+      - core
+      - web
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+
+  db:
+    image: postgres:16.1
+    volumes:
+      - dms-pgdata:/var/lib/postgresql/data/
+    ports:
+     - "3000:5432"
+    environment:
+      POSTGRES_PASSWORD: snake
+      POSTGRES_DB: dms
+      POSTGRES_USER: liquid
+    healthcheck:
+      test: pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB
+      interval: 5s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+volumes:
+  dms-pgdata:

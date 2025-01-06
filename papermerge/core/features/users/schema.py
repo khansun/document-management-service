@@ -12,7 +12,7 @@ from pydantic import (
 
 
 class Group(BaseModel):
-    id: int
+    id: str
     name: str
 
 
@@ -75,8 +75,8 @@ class UserDetails(BaseModel):
                     "inbox_folder_id": uuid.uuid4(),
                     "scopes": ["node.create", "node.view", "node.delete", "node.move"],
                     "groups": [
-                        {"id": 1, "name": "Admin"},
-                        {"id": 2, "name": "Archiver"},
+                        {"id": "1", "name": "Admin"},
+                        {"id": "2", "name": "Archiver"},
                     ],
                     "created_at": "2024-03-15T06:38:58.197883Z",
                     "updated_at": "2024-03-15T06:38:58.210525Z",
@@ -93,7 +93,7 @@ class CreateUser(BaseModel):
     is_superuser: bool
     is_active: bool
     scopes: list[str]  # list of scope names e.g. "user.create", "user.delete"
-    group_ids: list[int]  # list of group IDs e.g. 65, 72
+    group_ids: list[str]  # list of group IDs e.g. 65, 72
 
     # Config
     model_config = ConfigDict(from_attributes=True)
@@ -106,4 +106,4 @@ class UpdateUser(BaseModel):
     is_superuser: bool | None = None
     is_active: bool | None = None
     scopes: list[str] | None = None
-    group_ids: list[int] | None = None
+    group_ids: list[str] | None = None

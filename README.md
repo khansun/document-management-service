@@ -1,10 +1,4 @@
-[![Tests](https://github.com/papermerge/papermerge-core/actions/workflows/tests.yml/badge.svg)](https://github.com/papermerge/papermerge-core/actions/workflows/tests.yml)
-
-
-<p align="center">
-<img src="./artwork/logo-w160px.png" />
-</p>
-<h1 align="center">Papermerge DMS</h1>
+# DMS
 
 Papermerge DMS or simply Papermerge is a open source document management system
 designed to work with scanned documents (also called digital archives). It
@@ -16,10 +10,6 @@ you can efficiently store and organize your documents.
 
 It supports PDF, TIFF, JPEG and PNG document file formats.
 Papermerge is perfect tool for long term storage of your documents.
-
-<p align="center">
-<img src="./artwork/papermerge3.png" />
-</p>
 
 ## Features Highlights
 
@@ -37,12 +27,26 @@ Papermerge is perfect tool for long term storage of your documents.
 * Multi-User
 * Page Management - delete, reorder, cut, move, extract pages
 
+
+
 ## Documentation
 
 Papermerge DMS documentation is available at [https://docs.papermerge.io](https://docs.papermerge.io/)
 
+# Development build
+
+## Anaconda Environment
+* `conda env create -f .\conda-env.yml`
+* `poetry install -E pg`
+* `.\run.dev.ps1`
+
+
+# Production build
+
 ## Docker Build
-* `docker build -t pmdev .`
+* `docker build -t dms-api:dev .`
+* `docker image save dms-api:dev -o .\dms-api.tar`
+
 ## Docker Compose
 
 * `docker compose up -d`

@@ -1,0 +1,12 @@
+name: dms
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.13
+  - pip
+  - poetry=1.8.4
+  - psycopg2
+  - psycopg2-binary
+  - pip:
+      - roco==0.4.2

@@ -6,7 +6,7 @@ PREFIX = os.environ.get("PAPERMERGE__MAIN__PREFIX", None)
 broker_url = os.environ.get("PAPERMERGE__REDIS__URL", None)
 
 if broker_url:
-    app = Celery("papermerge", broker=broker_url)
+    app = Celery("papermerge", broker=broker_url, backend=broker_url)
 else:
     app = Celery("papermerge")
 

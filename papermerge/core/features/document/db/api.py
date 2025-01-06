@@ -1,23 +1,27 @@
 import io
 import logging
-import os
+import os, re
 from os.path import getsize
 import uuid
 import img2pdf
 from pikepdf import Pdf
 import tempfile
 from pathlib import Path
-
+from docx import Document
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 from typing import Tuple
-
+import pandas as pd
+from PIL import Image, ImageDraw, ImageFont
 from sqlalchemy import delete, func, insert, select, update, Select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
 
 from papermerge.core.db.engine import Session
+from papermerge.core.constants import ContentType
 from papermerge.core.utils.misc import copy_file
-from papermerge.core import schema, orm, constants, tasks
+from papermerge.core import schema, orm
 from papermerge.core.features.document_types.db.api import document_type_cf_count
 from papermerge.core.types import OrderEnum, CFVValueColumn
 from papermerge.core.db.common import get_ancestors
@@ -27,11 +31,10 @@ from papermerge.core.pathlib import (
 )
 from papermerge.core.features.document.schema import DocumentCFVRow
 from papermerge.core.features.document.ordered_document_cfv import OrderedDocumentCFV
-from papermerge.core import config
 
 from .selectors import select_doc_cfv, select_docs_by_type
 
-settings = config.get_settings()
+
 
 logger = logging.getLogger(__name__)
 
@@ -533,6 +536,144 @@ def create_next_version(
     return document_version
 
 
+
+def convertFromDocX(tmp_file_path, content):
+    content.seek(0)  # Ensure you're reading from the start of the BytesIO content
+    doc = Document(content)
+    c = canvas.Canvas(str(tmp_file_path), pagesize=letter)
+    width, height = letter  # Letter size
+
+    # Standard margins and line height
+    margin = 40
+    line_height = 12
+    y_position = height - margin  # Start from the top of the page
+
+    # Set font and size (standardized)
+    c.setFont("Helvetica", 10)  # Using Helvetica, font size 10
+
+    for para in doc.paragraphs:
+        # Handle page break if there's no space left
+        if y_position < margin + line_height:
+            c.showPage()  # Start a new page
+            c.setFont("Helvetica", 10)  # Reset font after page break
+            y_position = height - margin  # Reset the y_position for the new page
+        
+        # Draw the paragraph text on the PDF
+        text = para.text.strip()  # Remove leading/trailing spaces from each paragraph
+        c.drawString(margin, y_position, text)
+        y_position -= line_height  # Move down for the next line
+
+    c.save()
+    with open(tmp_file_path, "rb") as f:
+        pdf_content = f.read()
+
+    return pdf_content
+
+def convertFromCsv(tmp_file_path, content):
+    content.seek(0)  # Ensure you're reading from the start of the BytesIO content
+    df = pd.read_csv(content)  # Read the CSV file using pandas
+    
+    c = canvas.Canvas(str(tmp_file_path), pagesize=letter)
+    width, height = letter  # Letter size
+
+    y_position = height - 40  # Start from the top of the page
+    # Draw column headers
+    for col_num, column in enumerate(df.columns):
+        c.drawString(40 + col_num * 100, y_position, str(column))
+    
+    y_position -= 20  # Move down for the data rows
+
+    # Draw data rows
+    for row in df.itertuples(index=False):  # Avoid the index column
+        if y_position < 40:  # If the text reaches the bottom, create a new page
+            c.showPage()
+            y_position = height - 40
+            # Redraw column headers on new page
+            for col_num, column in enumerate(df.columns):
+                c.drawString(40 + col_num * 100, y_position, str(column))
+            y_position -= 20
+        
+        # Draw each cell in the row
+        for col_num, value in enumerate(row):
+            c.drawString(40 + col_num * 100, y_position, str(value))
+        
+        y_position -= 20  # Move down for the next row
+    
+    c.save()
+    with open(tmp_file_path, "rb") as f:
+        pdf_content = f.read()
+
+    return pdf_content
+
+def convertFromExcel(tmp_file_path, content):
+    content.seek(0)  # Ensure you're reading from the start of the BytesIO content
+    df = pd.read_excel(content)  # Read the Excel file using pandas
+    
+    c = canvas.Canvas(str(tmp_file_path), pagesize=letter)
+    width, height = letter  # Letter size
+
+    y_position = height - 40  # Start from the top of the page
+    # Draw column headers
+    for col_num, column in enumerate(df.columns):
+        c.drawString(40 + col_num * 100, y_position, str(column))
+    
+    y_position -= 20  # Move down for the data rows
+
+    # Draw data rows
+    for row in df.itertuples(index=False):  # Avoid the index column
+        if y_position < 40:  # If the text reaches the bottom, create a new page
+            c.showPage()
+            y_position = height - 40
+            # Redraw column headers on new page
+            for col_num, column in enumerate(df.columns):
+                c.drawString(40 + col_num * 100, y_position, str(column))
+            y_position -= 20
+        
+        # Draw each cell in the row
+        for col_num, value in enumerate(row):
+            c.drawString(40 + col_num * 100, y_position, str(value))
+        
+        y_position -= 20  # Move down for the next row
+    
+    c.save()
+    with open(tmp_file_path, "rb") as f:
+        pdf_content = f.read()
+
+    return pdf_content
+
+def convertToGenericPdf(tmp_file_path, content):
+    # Create a generic image containing the input string
+    img = Image.new('RGB', (1280, 720), color=(255, 255, 255))
+    d = ImageDraw.Draw(img)
+    font = ImageFont.load_default()
+    d.text((10, 10), content, fill=(0, 0, 0), font=font)
+    
+    # Save the image to a temporary file
+    img_path = tmp_file_path + ".png"
+    img.save(img_path)
+    
+    # Convert the image to PDF
+    with open(tmp_file_path, "wb") as f:
+        pdf_content = img2pdf.convert(img_path)
+        f.write(pdf_content)
+    
+    return pdf_content
+
+def convertToPdfContent(tmp_file_path, content_type, content):
+    if "image" in content_type:
+        with open(tmp_file_path, "wb") as f:
+            pdf_content = img2pdf.convert(content)
+            f.write(pdf_content)
+    elif content_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        return convertFromDocX(tmp_file_path, content)
+    elif content_type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+        return convertFromExcel(tmp_file_path, content)
+    elif content_type == "text/csv":
+        return convertFromCsv(tmp_file_path, content)
+    else:
+        return convertToGenericPdf(tmp_file_path, content)            
+    return pdf_content
+
 def upload(
     db_session,
     document_id: uuid.UUID,
@@ -543,15 +684,12 @@ def upload(
 ) -> [schema.Document | None, schema.Error | None]:
 
     doc = db_session.get(orm.Document, document_id)
-    orig_ver = None
 
-    if content_type != constants.ContentType.APPLICATION_PDF:
+    if content_type != ContentType.APPLICATION_PDF:
         try:
             with tempfile.TemporaryDirectory() as tmpdirname:
                 tmp_file_path = Path(tmpdirname) / f"{file_name}.pdf"
-                with open(tmp_file_path, "wb") as f:
-                    pdf_content = img2pdf.convert(content)
-                    f.write(pdf_content)
+                pdf_content = convertToPdfContent(tmp_file_path, content_type, content)
         except img2pdf.ImageOpenError as e:
             error = schema.Error(messages=[str(e)])
             return None, error
@@ -591,6 +729,7 @@ def upload(
             db_session.add_all([db_page_orig, db_page_pdf])
 
     else:
+        # pdf_ver == orig_ver
         pdf_ver = create_next_version(
             db_session, doc=doc, file_name=file_name, file_size=size
         )
@@ -615,39 +754,7 @@ def upload(
         error = schema.Error(messages=[str(e)])
         return None, error
 
-    validated_model = schema.Document.model_validate(doc)
-
-
-    if orig_ver:
-        # non PDF document
-        # here `orig_ver` means - version which is not a PDF
-        # may be Jpg, PNG or TIFF
-        tasks.send_task(
-            constants.S3_WORKER_ADD_DOC_VER,
-            kwargs={"doc_ver_ids": [str(orig_ver.id)]},
-            route_name="s3",
-        )
-
-    # PDF document
-    tasks.send_task(
-        constants.S3_WORKER_ADD_DOC_VER,
-        kwargs={"doc_ver_ids": [str(pdf_ver.id)]},
-        route_name="s3",
-    )
-
-    if not settings.papermerge__ocr__automatic:
-        if doc.ocr is True:
-            # user chose "schedule OCR" when uploading document
-            tasks.send_task(
-                constants.WORKER_OCR_DOCUMENT,
-                kwargs={
-                    "document_id": str(doc.id),
-                    "lang": doc.lang,
-                },
-                route_name="ocr",
-            )
-
-    return validated_model, None
+    return schema.Document.model_validate(doc), None
 
 
 def get_doc(

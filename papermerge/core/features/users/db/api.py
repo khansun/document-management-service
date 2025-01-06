@@ -60,7 +60,7 @@ def get_user_details(
         is_superuser=db_user.is_superuser,
         is_active=db_user.is_active,
         scopes=list([p.codename for p in db_user.permissions]),
-        groups=list([{"id": g.id, "name": g.name} for g in db_user.groups]),
+        groups=list([{"id": str(g.id), "name": g.name} for g in db_user.groups]),
     )
 
     model_user = schema.UserDetails.model_validate(result)
@@ -93,7 +93,7 @@ def create_user(
     email: str,
     password: str,
     scopes: list[str] | None = None,
-    group_ids: list[int] | None = None,
+    group_ids: list[str] | None = None,
     is_superuser: bool = False,
     is_active: bool = False,
     user_id: uuid.UUID | None = None,

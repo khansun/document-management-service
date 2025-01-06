@@ -59,7 +59,7 @@ def get_groups(
 @router.get("/{group_id}", response_model=schema.GroupDetails)
 @utils.docstring_parameter(scope=scopes.GROUP_VIEW)
 def get_group(
-    group_id: int,
+    group_id: str,
     user: Annotated[
         schema.User, Security(get_current_user, scopes=[scopes.GROUP_VIEW])
     ],
@@ -117,7 +117,7 @@ def create_group(
 )
 @utils.docstring_parameter(scope=scopes.GROUP_DELETE)
 def delete_group(
-    group_id: int,
+    group_id: str,
     user: Annotated[
         schema.User, Security(get_current_user, scopes=[scopes.GROUP_DELETE])
     ],
@@ -136,7 +136,7 @@ def delete_group(
 @router.patch("/{group_id}", status_code=200, response_model=schema.Group)
 @utils.docstring_parameter(scope=scopes.GROUP_UPDATE)
 def update_group(
-    group_id: int,
+    group_id: str,
     attrs: schema.UpdateGroup,
     cur_user: Annotated[
         schema.User, Security(get_current_user, scopes=[scopes.GROUP_UPDATE])

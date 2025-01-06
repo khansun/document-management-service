@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "papermerge-core"
 version = "3.3"
-description = "Open source document management system for digital archives"
+description = "Document management system for digital archives"
 authors = ["Eugen Ciur <eugen@papermerge.com>"]
 maintainers = ["Eugen Ciur <eugen@papermerge.com>"]
 license = "Apache 2.0"
@@ -60,6 +60,15 @@ boto3 = { version = "^1.35", optional = true }
 mysqlclient = {version = "^2.2", optional = true}
 cryptography = { version = "^43", optional = true }
 taskipy = "^1.14"
+pyjwt = "^2.10.1"
+django = "^5.1.4"
+python-docx = "^1.1.2"
+pandas = "^2.2.3"
+fpdf = "^1.7.2"
+openpyxl = "^3.1.5"
+pypandoc = "^1.14"
+reportlab = "^4.2.5"
+pillow = "^11.0.0"
 
 [tool.poetry.extras]
 mysql = ["mysqlclient"]

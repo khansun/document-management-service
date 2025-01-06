@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Security
 from sqlalchemy.exc import NoResultFound, IntegrityError
-
+from papermerge.search.schema import SearchIndexRequest
 from papermerge.core.constants import INDEX_REMOVE_NODE
 from papermerge.core.tasks import send_task
 from papermerge.core import utils, schema, config
@@ -18,6 +18,7 @@ from papermerge.core.features.nodes.db import api as nodes_dbapi
 from papermerge.core.routers.common import OPEN_API_GENERIC_JSON_DETAIL
 from papermerge.core.routers.params import CommonQueryParams
 from papermerge.core.exceptions import EntityNotFound
+from papermerge.search.api import deleteSearchIndex
 
 
 router = APIRouter(prefix="/nodes", tags=["nodes"])
@@ -94,7 +95,7 @@ def create_node(
         # if user does not specify document's language, get that
         # value from user preferences
         if pynode.lang is None:
-            pynode.lang = settings.papermerge__ocr__default_lang_code
+            pynode.lang = settings.papermerge__ocr__default_language
 
         attrs = dict(
             title=pynode.title,
@@ -179,6 +180,12 @@ def delete_nodes(
         kwargs={"item_ids": [str(i) for i in list_of_uuids]},
         route_name="i3",
     )
+    try:
+        deletedIndices = deleteSearchIndex(request=SearchIndexRequest(node_ids=list_of_uuids, user_id=user.id))
+        logger.info(f"deletedIndices: {deletedIndices}")
+    except Exception:
+        logger.error("deleteSearchIndex Exception")
+        
 
 
 @router.post(

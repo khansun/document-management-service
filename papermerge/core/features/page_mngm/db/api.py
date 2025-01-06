@@ -10,7 +10,7 @@ from typing import List
 from pikepdf import Pdf
 from sqlalchemy import select, delete
 
-from papermerge.core import tasks
+from papermerge.celery_app import app as current_app
 from papermerge.core import constants as const
 from papermerge.core.pathlib import abs_page_path
 from papermerge.core.storage import get_storage_instance
@@ -706,18 +706,14 @@ def get_docver_ids(db_session, document_ids: list[uuid.UUID]) -> list[uuid.UUID]
 @if_redis_present
 def notify_version_update(add_ver_id: str, remove_ver_id: str):
     # Send tasks to the index to remove/add pages
-    tasks.send_task(
-        const.INDEX_UPDATE,
-        kwargs={"add_ver_id": add_ver_id, "remove_ver_id": str(remove_ver_id)},
-        route_name="i3",
-    )
+    current_app.send_task(const.INDEX_UPDATE, (add_ver_id, remove_ver_id))
 
-    tasks.send_task(
+    current_app.send_task(
         const.S3_WORKER_ADD_DOC_VER,
         kwargs={"doc_ver_ids": [add_ver_id]},
         route_name="s3",
     )
-    tasks.send_task(
+    current_app.send_task(
         const.S3_WORKER_REMOVE_DOC_VER,
         kwargs={"doc_ver_ids": [remove_ver_id]},
         route_name="s3",
@@ -728,11 +724,9 @@ def notify_version_update(add_ver_id: str, remove_ver_id: str):
 def notify_add_docs(db_session, add_doc_ids: List[uuid.UUID]):
     # send task to index
     logger.debug(f"Sending task {const.INDEX_ADD_DOCS} with {add_doc_ids}")
-    tasks.send_task(
+    current_app.send_task(
         const.INDEX_ADD_DOCS,
-        kwargs={
-            "doc_ids": [str(i) for i in add_doc_ids],
-        },
+        kwargs={"doc_ids": [str(i) for i in add_doc_ids]},
         route_name="i3",
     )
 
@@ -740,17 +734,17 @@ def notify_add_docs(db_session, add_doc_ids: List[uuid.UUID]):
         str(doc_id) for doc_id in get_docver_ids(db_session, document_ids=add_doc_ids)
     ]
 
-    tasks.send_task(
+    current_app.send_task(
         const.S3_WORKER_ADD_DOC_VER,
         kwargs={"doc_ver_ids": ids},
         route_name="s3",
     )
 
-
+    
 @if_redis_present
 def notify_generate_previews(doc_id: list[str] | str):
     if isinstance(doc_id, str):
-        tasks.send_task(
+        current_app.send_task(
             const.S3_WORKER_GENERATE_PREVIEW,
             kwargs={"doc_id": doc_id},
             route_name="s3preview",
@@ -758,7 +752,7 @@ def notify_generate_previews(doc_id: list[str] | str):
         return
     elif isinstance(doc_id, list):
         for item in doc_id:
-            tasks.send_task(
+            current_app.send_task(
                 const.S3_WORKER_GENERATE_PREVIEW,
                 kwargs={"doc_id": item},
                 route_name="s3preview",

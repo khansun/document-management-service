@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Security, UploadFile
 from sqlalchemy.exc import NoResultFound
 
+from papermerge.celery_app import app as celery_app
 from papermerge.core import constants as const
 from papermerge.core import utils, db, dbapi, schema
 from papermerge.core.features.auth import get_current_user, scopes
@@ -16,7 +17,7 @@ from papermerge.core.features.document.schema import (
     OrderBy,
 )
 from papermerge.core.config import get_settings, FileServer
-from papermerge.core.tasks import send_task
+from papermerge.core.utils.decorators import if_redis_present
 from papermerge.core.types import OrderEnum, PaginatedResponse
 
 
@@ -143,11 +144,23 @@ def upload_file(
             kwargs={"doc_id": str(doc.id)},
             route_name="s3preview",
         )
-
+        
+    send_task(
+        const.INDEX_ADD_DOCS,
+        kwargs={"doc_ids": [str(doc.id)]},
+        route_name="i3",
+    )
     if error:
         raise HTTPException(status_code=400, detail=error.model_dump())
 
+
     return doc
+
+
+@if_redis_present
+def send_task(*args, **kwargs):
+    logger.debug(f"Send task {args} {kwargs}")
+    celery_app.send_task(*args, **kwargs)
 
 
 @router.get("/{document_id}")

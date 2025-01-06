@@ -1,4 +1,5 @@
-version: 1
+version: 1 
+
 disable_existing_loggers: false
 
 formatters:
@@ -7,15 +8,32 @@ formatters:
 
 handlers:
   console:
-    level: INFO
+    level: DEBUG 
     class: logging.StreamHandler
     formatter: verbose
+  file:
+    level: DEBUG  
+    class: logging.FileHandler
+    formatter: verbose
+    filename: /app/logs/papermerge.log
 
 loggers:
-  auth_server:
-    level: INFO
-    handlers: [console]
+  root:
+    level: DEBUG 
+    handlers: [console, file]
+  papermerge.core.tasks:
+    level: DEBUG
+    handlers: [console, file]
+    propagate: yes
   papermerge.search.tasks:
-    level: INFO
-    handlers: [console]
-    propagate: no
+    level: DEBUG
+    handlers: [console, file]
+    propagate: yes
+  fastapi:
+    level: DEBUG
+    handlers: [console, file]
+    propagate: yes
+  uvicorn:
+    level: DEBUG
+    handlers: [console, file]
+    propagate: yes

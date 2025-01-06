@@ -1,5 +1,5 @@
 from typing import Optional
-
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 from salinic import types
 from salinic.field import KeywordField, StringField, TextField, UUIDField
@@ -39,7 +39,7 @@ class SearchIndex(Schema):
 
     # None in case of folder entity
     page_number: types.OptionalNumeric = None
-
+    entity_type: Annotated[str, KeywordField()]
     tags: Annotated[Optional[list[str]], KeywordField(multi_value=True)] = []
 
     def __str__(self):
@@ -82,3 +82,7 @@ class PaginatedResponse(BaseModel):
     items: list[Folder | DocumentPage]
 
     model_config = ConfigDict(from_attributes=True)
+
+class SearchIndexRequest(BaseModel):
+    node_ids: list[UUID]
+    user_id: UUID

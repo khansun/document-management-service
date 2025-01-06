@@ -18,17 +18,16 @@ from papermerge.core.features.document.router_pages import router as pages_route
 from papermerge.core.features.document.router_document_version import (
     router as document_versions_router,
 )
-from papermerge.core.features.liveness_probe.router import router as probe_router
 from papermerge.search.routers.search import router as search_router
+from papermerge.core.features.auth.router import router as auth_router
 from papermerge.core.features.tasks.router import router as tasks_router
-
 from papermerge.core.version import __version__
 from papermerge.core.config import get_settings
-
+from papermerge.core.features.liveness_probe.router import router as probe_router
 
 config = get_settings()
 prefix = config.papermerge__main__api_prefix
-app = FastAPI(title="Papermerge DMS REST API", version=__version__)
+app = FastAPI(title="DMS REST API", version=__version__, root_path="/api")
 
 app.add_middleware(
     CORSMiddleware,
@@ -37,7 +36,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+app.include_router(auth_router, prefix=prefix)
 app.include_router(nodes_router, prefix=prefix)
 app.include_router(folders_router, prefix=prefix)
 app.include_router(thumbnails_router, prefix=prefix)
